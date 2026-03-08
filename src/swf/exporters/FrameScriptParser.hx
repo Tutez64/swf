@@ -13,6 +13,11 @@ class FrameScriptParser
 
 	public static function getBaseClassName(swfData:SWFRoot, className:String):String
 	{
+		if (swfData == null || swfData.abcData == null)
+		{
+			return null;
+		}
+
 		var classData = swfData.abcData.findClassByName(className);
 		if (classData != null && classData.superclass != null)
 		{
@@ -36,6 +41,11 @@ class FrameScriptParser
 
 	public static function convertToJS(swfData:SWFRoot, className:String):Array<String>
 	{
+		if (swfData == null || swfData.abcData == null)
+		{
+			return null;
+		}
+
 		indentationLevel = 0;
 		var cls = swfData.abcData.findClassByName(className);
 		var scripts = null;
@@ -824,7 +834,7 @@ class AVM2
 
 	public static function findClassByName(abcData:ABCData, s:String):ClassDef
 	{
-		if (s == null) return null;
+		if (abcData == null || s == null) return null;
 
 		var x = s.lastIndexOf(".");
 		var pkgName = "";
@@ -858,6 +868,11 @@ class AVM2
 
 	public static function classHasField(abcData:ABCData, cls:ClassDef, name:String):Bool
 	{
+		if (abcData == null || cls == null || name == null)
+		{
+			return false;
+		}
+
 		var classHasField = false;
 
 		for (field in cls.fields)
