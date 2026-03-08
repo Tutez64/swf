@@ -179,6 +179,7 @@ class AnimateLibraryExporter
 		var outputFile = File.write(targetPath, true);
 		var writer = new ZipWriter(outputFile);
 		writer.write(outputList);
+		outputFile.close();
 	}
 
 	private function addButton(tag:IDefinitionTag):Dynamic
