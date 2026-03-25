@@ -15,6 +15,7 @@ class AnimateSpriteSymbol extends AnimateSymbol
 {
 	public var baseClassName:String;
 	public var frames:Array<AnimateFrame>;
+	public var instanceProperties:Dynamic;
 	public var scale9Grid:Rectangle;
 
 	private var library:AnimateLibrary;
@@ -70,6 +71,8 @@ class AnimateSpriteSymbol extends AnimateSymbol
 			#end
 		}
 
+		__applyInstanceProperties(sprite);
+
 		#if flash
 		if (!#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (sprite, flash.display.MovieClip.MovieClip2))
 		{
@@ -95,7 +98,58 @@ class AnimateSpriteSymbol extends AnimateSymbol
 	private override function __initObject(library:AnimateLibrary, instance:DisplayObject):Void
 	{
 		this.library = library;
+		__applyInstanceProperties(instance);
 		__constructor(cast instance);
+	}
+
+	private function __applyInstanceProperties(instance:DisplayObject):Void
+	{
+		if (instance == null || instanceProperties == null)
+		{
+			return;
+		}
+
+		for (field in Reflect.fields(instanceProperties))
+		{
+			var value = __cloneInstanceProperty(Reflect.field(instanceProperties, field));
+			try
+			{
+				Reflect.setField(instance, field, value);
+			}
+			catch (_:Dynamic)
+			{
+				try
+				{
+					Reflect.setProperty(instance, field, value);
+				}
+				catch (_:Dynamic) {}
+			}
+		}
+	}
+
+	private function __cloneInstanceProperty(value:Dynamic):Dynamic
+	{
+		if (value == null || Std.isOfType(value, Bool) || Std.isOfType(value, String) || Std.isOfType(value, Int) || Std.isOfType(value, Float))
+		{
+			return value;
+		}
+
+		if (Std.isOfType(value, Array))
+		{
+			var copy = [];
+			for (item in cast(value, Array<Dynamic>))
+			{
+				copy.push(__cloneInstanceProperty(item));
+			}
+			return copy;
+		}
+
+		var clone:Dynamic = {};
+		for (field in Reflect.fields(value))
+		{
+			Reflect.setField(clone, field, __cloneInstanceProperty(Reflect.field(value, field)));
+		}
+		return clone;
 	}
 
 	private function __resolveSymbolType():Class<Dynamic>
