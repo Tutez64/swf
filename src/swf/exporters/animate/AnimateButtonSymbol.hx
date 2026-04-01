@@ -57,7 +57,18 @@ class AnimateButtonSymbol extends AnimateSymbol
 
 		if (symbolType != null)
 		{
-			simpleButton = Type.createInstance(symbolType, []);
+			AnimateGeneratedTypeContext.setButton(library, this);
+
+			try
+			{
+				simpleButton = Type.createInstance(symbolType, []);
+				AnimateGeneratedTypeContext.clearButtonIfMatches(library, this);
+			}
+			catch (e:Dynamic)
+			{
+				AnimateGeneratedTypeContext.clearButton();
+				throw e;
+			}
 		}
 
 		if (simpleButton == null)
