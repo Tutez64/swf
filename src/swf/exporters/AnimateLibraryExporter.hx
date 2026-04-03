@@ -815,9 +815,6 @@ class AnimateLibraryExporter
 			symbol.scale9Grid = serializeRect(scalingGrid.splitter.rect);
 		}
 
-		var scripts = null;
-		var found = false;
-
 		var swfSymbol = symbolsByTagID.get(symbol.id);
 		if (swfSymbol != null)
 		{

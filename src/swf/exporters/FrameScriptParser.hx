@@ -60,7 +60,7 @@ class FrameScriptParser
 		{
 			cls = swfData.abcData.findClassByName(className);
 		}
-		var scripts = null;
+		var scripts:Array<String> = null;
 
 		if (cls != null && cls.fields != null && cls.fields.length > 0)
 		{
