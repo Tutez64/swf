@@ -892,7 +892,6 @@ class SWFLiteExporter
 			symbol.scale9Grid = scalingGrid.splitter.rect;
 		}
 
-		var scripts = null;
 		var swfSymbol = symbolsByTagID.get(symbol.id);
 		if (swfSymbol != null)
 		{

@@ -1065,9 +1065,6 @@ class AnimateLibraryExporter
 			symbol.scale9Grid = serializeRect(scalingGrid.splitter.rect);
 		}
 
-		var scripts = null;
-		var found = false;
-
 		var swfSymbol = symbolsByTagID.get(symbol.id);
 		if (swfSymbol != null)
 		{
@@ -1322,7 +1319,7 @@ class AnimateLibraryExporter
 		{
 			var defineSound:TagDefineSound = cast tag;
 			var soundType = getSoundType(defineSound.soundFormat);
-	
+
 			var export = exportSound(defineSound);
 			if (export == null)
 			{
@@ -1374,10 +1371,10 @@ class AnimateLibraryExporter
 				}
 				mp3.position = 0;
 				return {bytes: mp3, extension: "mp3"};
-	
+
 			case UNCOMPRESSED_NATIVE_ENDIAN, UNCOMPRESSED_LITTLE_ENDIAN:
 				return {bytes: buildWAVFromPCM(defineSound), extension: "wav"};
-	
+
 			case ADPCM, NELLYMOSER_16_KHZ, NELLYMOSER_8_KHZ, NELLYMOSER, SPEEX, null:
 				return null;
 		}
