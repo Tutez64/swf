@@ -11,6 +11,7 @@ class TestMain extends Sprite
 		var runner = new Runner();
 		runner.addCase(new tests.AnimateBitmapSymbolTest());
 		runner.addCase(new tests.AnimateShapeSymbolTest());
+		runner.addCase(new tests.AnimateTimelineTest());
 		runner.addCase(new tests.ShapesTest());
 
 		Report.create(runner);

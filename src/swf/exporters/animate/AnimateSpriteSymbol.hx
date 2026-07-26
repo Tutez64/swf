@@ -18,6 +18,7 @@ class AnimateSpriteSymbol extends AnimateSymbol
 	public var instanceProperties:Dynamic;
 	public var scale9Grid:Rectangle;
 
+	private var compactTimeline:AnimateTimelineData;
 	private var library:AnimateLibrary;
 	private var resolvedBaseSymbolType:Class<Dynamic>;
 	private var resolvedBaseSymbolTypeReady = false;
@@ -161,6 +162,12 @@ class AnimateSpriteSymbol extends AnimateSymbol
 			Reflect.setField(clone, field, __cloneInstanceProperty(Reflect.field(value, field)));
 		}
 		return clone;
+	}
+
+	@:allow(swf.exporters.animate.AnimateLibrary)
+	private function __setCompactTimeline(frames:Array<Dynamic>):Void
+	{
+		compactTimeline = new AnimateTimelineData(frames);
 	}
 
 	private function __resolveSymbolType():Class<Dynamic>
