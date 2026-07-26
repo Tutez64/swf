@@ -8,6 +8,9 @@ import openfl.display.JointStyle;
 import openfl.display.LineScaleMode;
 import openfl.display.Shape;
 import openfl.display.SpreadMethod;
+#if (lime && !flash && swf_hardware_bitmap_cache)
+import openfl.display._internal.Context3DGraphics;
+#end
 import swf.exporters.animate.AnimateLibrary.SWFShapeCommandType;
 
 #if !openfl_debug
@@ -21,12 +24,20 @@ import swf.exporters.animate.AnimateLibrary.SWFShapeCommandType;
 @:access(openfl.display.JointStyle)
 @:access(openfl.display.LineScaleMode)
 @:access(openfl.display.SpreadMethod)
+#if (lime && !flash && swf_hardware_bitmap_cache)
+@:access(openfl.display._internal.Context3DGraphics)
+#end
 class AnimateShapeSymbol extends AnimateSymbol
 {
 	public var commands:Array<AnimateShapeCommand>;
 	public var rendered:Shape;
 
 	private var compactCommands:Array<Float>;
+	#if (lime && !flash && swf_hardware_bitmap_cache)
+	private static var __probeBitmapData:BitmapData;
+	private var hardwareCompatible:Null<Bool>;
+	private var requiresReadableBitmapData:Bool;
+	#end
 
 	public function new()
 	{
@@ -44,9 +55,35 @@ class AnimateShapeSymbol extends AnimateSymbol
 			return shape;
 		}
 
+		var hardwareBitmapFills = false;
+		#if (lime && !flash && swf_hardware_bitmap_cache)
+		if (!requiresReadableBitmapData)
+		{
+			if (hardwareCompatible == null)
+			{
+				var probe = new Shape();
+				__renderCommands(probe.graphics, library, false, true);
+				hardwareCompatible = Context3DGraphics.isCompatible(probe.graphics);
+			}
+			hardwareBitmapFills = hardwareCompatible == true;
+		}
+		#end
+
+		__renderCommands(graphics, library, hardwareBitmapFills, false);
+
+		commands = null;
+		compactCommands = null;
+		rendered = new Shape();
+		rendered.graphics.copyFrom(shape.graphics);
+
+		return shape;
+	}
+
+	private function __renderCommands(graphics:openfl.display.Graphics, library:AnimateLibrary, hardwareBitmapFills:Bool, probeBitmapFills:Bool):Void
+	{
 		if (compactCommands != null)
 		{
-			__renderCompactCommands(graphics, library);
+			__renderCompactCommands(graphics, library, hardwareBitmapFills, probeBitmapFills);
 		}
 		else if (commands != null)
 		{
@@ -58,7 +95,7 @@ class AnimateShapeSymbol extends AnimateSymbol
 						graphics.beginFill(color, alpha);
 
 					case BeginBitmapFill(bitmapID, matrix, repeat, smooth):
-						__beginBitmapFill(graphics, library, bitmapID, matrix, repeat, smooth);
+						__beginBitmapFill(graphics, library, bitmapID, matrix, repeat, smooth, hardwareBitmapFills, probeBitmapFills);
 
 					case BeginGradientFill(fillType, colors, alphas, ratios, matrix, spreadMethod, interpolationMethod, focalPointRatio):
 						#if flash
@@ -99,25 +136,41 @@ class AnimateShapeSymbol extends AnimateSymbol
 				}
 			}
 		}
-
-		commands = null;
-		compactCommands = null;
-		rendered = new Shape();
-		rendered.graphics.copyFrom(shape.graphics);
-
-		return shape;
 	}
 
 	private static function __beginBitmapFill(graphics:openfl.display.Graphics, library:AnimateLibrary, bitmapID:Int, matrix:openfl.geom.Matrix, repeat:Bool,
-			smooth:Bool):Void
+			smooth:Bool, hardwareBitmapFill:Bool, probeBitmapFill:Bool):Void
 	{
 		#if lime
 		var bitmapSymbol:AnimateBitmapSymbol = cast library.symbols.get(bitmapID);
-		var bitmap = library.getImage(bitmapSymbol.path);
-
-		if (bitmap != null)
+		#if (!flash && swf_hardware_bitmap_cache)
+		var bitmapData:BitmapData;
+		if (probeBitmapFill)
 		{
-			graphics.beginBitmapFill(BitmapData.fromImage(bitmap), matrix, repeat, smooth);
+			if (__probeBitmapData == null)
+			{
+				__probeBitmapData = new BitmapData(1, 1, true, 0xFFFFFFFF);
+			}
+			bitmapData = __probeBitmapData;
+		}
+		else if (hardwareBitmapFill)
+		{
+			bitmapData = library.__getHardwareBitmapData(bitmapSymbol);
+		}
+		else
+		{
+			// Shapes that fall back to Cairo, including scale9Grid shapes,
+			// still need CPU pixels.
+			bitmapData = library.__getReadableShapeBitmapData(bitmapSymbol);
+		}
+		#else
+		var bitmap = library.getImage(bitmapSymbol.path);
+		var bitmapData = bitmap != null ? BitmapData.fromImage(bitmap) : null;
+		#end
+
+		if (bitmapData != null)
+		{
+			graphics.beginBitmapFill(bitmapData, matrix, repeat, smooth);
 		}
 		#end
 	}
@@ -233,7 +286,8 @@ class AnimateShapeSymbol extends AnimateSymbol
 		output.push(value == null ? Math.NaN : value);
 	}
 
-	private function __renderCompactCommands(graphics:openfl.display.Graphics, library:AnimateLibrary):Void
+	private function __renderCompactCommands(graphics:openfl.display.Graphics, library:AnimateLibrary, hardwareBitmapFills:Bool,
+			probeBitmapFills:Bool):Void
 	{
 		var data = compactCommands;
 		var position = 0;
@@ -250,7 +304,7 @@ class AnimateShapeSymbol extends AnimateSymbol
 					position += data[position] == 0 ? 1 : 7;
 					var repeat = data[position++] != 0;
 					var smooth = data[position++] != 0;
-					__beginBitmapFill(graphics, library, bitmapID, matrix, repeat, smooth);
+					__beginBitmapFill(graphics, library, bitmapID, matrix, repeat, smooth, hardwareBitmapFills, probeBitmapFills);
 
 				case BEGIN_FILL:
 					graphics.beginFill(Std.int(data[position++]), data[position++]);

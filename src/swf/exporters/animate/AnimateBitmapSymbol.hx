@@ -34,6 +34,16 @@ class AnimateBitmapSymbol extends AnimateSymbol
 
 	private function __createBitmapData(library:AnimateLibrary):BitmapData
 	{
+		#if (lime && !flash && swf_hardware_bitmap_cache)
+		return library.__getHardwareBitmapData(this);
+		#else
+		return __createBitmapDataUncached(library);
+		#end
+	}
+
+	@:allow(swf.exporters.animate.AnimateLibrary)
+	private function __createBitmapDataUncached(library:AnimateLibrary):BitmapData
+	{
 		var symbolType = __resolveSymbolType();
 
 		if (symbolType != null)
