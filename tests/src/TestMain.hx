@@ -13,6 +13,7 @@ class TestMain extends Sprite
 		runner.addCase(new tests.AnimateShapeSymbolTest());
 		runner.addCase(new tests.AnimateTimelineTest());
 		runner.addCase(new tests.ShapesTest());
+		runner.addCase(new tests.AnimateLibraryLoadTest());
 
 		Report.create(runner);
 
