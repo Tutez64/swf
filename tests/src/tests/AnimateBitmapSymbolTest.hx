@@ -280,7 +280,6 @@ class AnimateBitmapSymbolTest extends Test
 		Assert.equals(20, bitmapData.height);
 		Assert.equals(48.0, bitmapData.rect.width);
 		Assert.equals(20.0, bitmapData.rect.height);
-		Assert.isFalse(bitmapData.readable);
 		Assert.isNull(bitmapData.image);
 		Assert.isTrue(bitmapData == symbol.__createBitmapData(library));
 		Assert.isFalse(library.cachedImages.exists(symbol.path));
@@ -291,7 +290,6 @@ class AnimateBitmapSymbolTest extends Test
 		Assert.isTrue(#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (clone, AnimateHardwareBitmapData));
 		Assert.equals(48, clone.width);
 		Assert.equals(20, clone.height);
-		Assert.isFalse(clone.readable);
 		cast(clone, AnimateHardwareBitmapData).__decodeImage();
 		Assert.notNull(clone.image);
 		Assert.isNull(bitmapData.image);
@@ -303,10 +301,119 @@ class AnimateBitmapSymbolTest extends Test
 		Assert.equals(48, bitmapData.image.width);
 		Assert.equals(20, bitmapData.image.height);
 		Assert.equals(0x336699FF, bitmapData.image.getPixel32(5, 5, RGBA32));
-		Assert.isFalse(bitmapData.readable);
 		// The upload releases the image, and the library can decode it again
 		Assert.isFalse(library.cachedImages.exists(symbol.path));
 		Assert.notNull(library.__getEncodedImage(symbol.path));
+		#else
+		Assert.isTrue(true);
+		#end
+	}
+
+	#if (lime && !flash && swf_hardware_bitmap_cache)
+	private static function deferredBitmapData(name:String, color:Int = 0x336699FF):AnimateHardwareBitmapData
+	{
+		var library = new AnimateLibrary(name, name);
+		library.bitmapSymbols = [];
+		var symbol = new AnimateBitmapSymbol();
+		symbol.id = 1;
+		symbol.path = name + ".png";
+		setEncodedImage(library, symbol.path, new Image(null, 0, 0, 48, 20, color).encode(PNG));
+		return cast symbol.__createBitmapData(library);
+	}
+	#end
+
+	public function testSoftwareRendererDrawsHardwareBitmap():Void
+	{
+		#if (lime_cairo && !flash && swf_hardware_bitmap_cache)
+		var bitmapData = deferredBitmapData("software-draw");
+		Assert.isTrue(bitmapData.readable);
+
+		// A shape filled with it, a Bitmap of it and the bitmap itself: BitmapData.draw() into a
+		// readable bitmap draws them with the software renderer
+		var shape = new openfl.display.Shape();
+		shape.graphics.beginBitmapFill(bitmapData);
+		shape.graphics.drawRect(0, 0, 48, 20);
+		shape.graphics.endFill();
+
+		var fromShape = new BitmapData(48, 20, true, 0);
+		fromShape.draw(shape);
+		Assert.equals(0xFF336699, fromShape.getPixel32(5, 5));
+		Assert.equals(0xFF336699, fromShape.getPixel32(47, 19));
+
+		var fromBitmap = new BitmapData(48, 20, true, 0);
+		fromBitmap.draw(new openfl.display.Bitmap(bitmapData));
+		Assert.equals(0xFF336699, fromBitmap.getPixel32(5, 5));
+
+		var fromBitmapData = new BitmapData(48, 20, true, 0);
+		fromBitmapData.draw(bitmapData);
+		Assert.equals(0xFF336699, fromBitmapData.getPixel32(5, 5));
+
+		// It drew from a copy, and keeps no image of its own
+		Assert.isNull(bitmapData.image);
+		Assert.notNull(bitmapData.__softwareCopy);
+
+		// The copy goes once it was not drawn for a while, and the next draw decodes it again
+		Assert.equals(1, AnimateHardwareBitmapData.__releaseIdleSoftwareCopies(bitmapData.__softwareCopyUsed - 1));
+		Assert.notNull(bitmapData.__softwareCopy);
+		Assert.equals(0, AnimateHardwareBitmapData.__releaseIdleSoftwareCopies(bitmapData.__softwareCopyUsed));
+		Assert.isNull(bitmapData.__softwareCopy);
+
+		var again = new BitmapData(48, 20, true, 0);
+		again.draw(shape);
+		Assert.equals(0xFF336699, again.getPixel32(5, 5));
+		AnimateHardwareBitmapData.__releaseIdleSoftwareCopies(bitmapData.__softwareCopyUsed);
+		#else
+		Assert.isTrue(true);
+		#end
+	}
+
+	public function testHitTestDoesNotDecodeHardwareBitmap():Void
+	{
+		#if (lime_cairo && !flash && swf_hardware_bitmap_cache)
+		var bitmapData = deferredBitmapData("hit-test");
+		var shape = new openfl.display.Shape();
+		shape.graphics.beginBitmapFill(bitmapData);
+		shape.graphics.moveTo(0, 0);
+		shape.graphics.lineTo(48, 0);
+		shape.graphics.lineTo(0, 20);
+		shape.graphics.endFill();
+
+		// A hit test reads the outline of the fill, not its pixels
+		Assert.isTrue(@:privateAccess shape.__hitTest(5, 5, true, null, false, shape));
+		Assert.isFalse(@:privateAccess shape.__hitTest(46, 18, true, null, false, shape));
+		Assert.isNull(bitmapData.__softwareCopy);
+		Assert.isNull(bitmapData.image);
+		#else
+		Assert.isTrue(true);
+		#end
+	}
+
+	public function testHardwareBitmapWhosePixelsAreReadBecomesOrdinary():Void
+	{
+		#if (lime && !flash && swf_hardware_bitmap_cache)
+		var bitmapData = deferredBitmapData("ordinary");
+		Assert.isNull(bitmapData.image);
+
+		// A method that reads or writes the pixels decodes the image, which the bitmap keeps
+		Assert.equals(0xFF336699, bitmapData.getPixel32(5, 5));
+		Assert.isTrue(bitmapData.readable);
+		Assert.notNull(bitmapData.image);
+		Assert.isNull(bitmapData.__softwareCopy);
+
+		bitmapData.setPixel32(5, 5, 0xFFFF0000);
+		Assert.equals(0xFFFF0000, bitmapData.getPixel32(5, 5));
+		Assert.equals(0xFF336699, bitmapData.getPixel32(6, 5));
+
+		// Its clone is a bitmap as any other, with the pixels as they are
+		var clone = bitmapData.clone();
+		Assert.isFalse(#if (haxe_ver >= 4.2) Std.isOfType #else Std.is #end (clone, AnimateHardwareBitmapData));
+		Assert.equals(0xFFFF0000, clone.getPixel32(5, 5));
+
+		// One written to before it was ever read
+		var written = deferredBitmapData("ordinary-written");
+		written.fillRect(new Rectangle(0, 0, 10, 10), 0xFF00FF00);
+		Assert.equals(0xFF00FF00, written.getPixel32(5, 5));
+		Assert.equals(0xFF336699, written.getPixel32(20, 5));
 		#else
 		Assert.isTrue(true);
 		#end
