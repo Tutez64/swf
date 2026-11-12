@@ -42,24 +42,17 @@ keeps its texture after it was last drawn; 0, the default, keeps it for as long
 as its library is loaded. A bitmap drawn again after that is decoded and
 uploaded again, which takes time in its size (about half a second for an
 8000x4500 PNG), so it suits screens that are left for long.
-A texture taken with `getTexture` and kept is disposed of with the others.
+A bitmap whose texture a `clone()` shares keeps it, but a texture taken with
+`getTexture` and kept is disposed of with the others.
 `AnimateLibrary.releaseIdleHardwareBitmaps(seconds)` does it once, on demand,
 and `swf_hardware_bitmap_idle_time`, defined with a number of seconds, sets the
 idle time from the start.
 
-A bitmap decoded when it is first drawn stays `readable`. The software
-renderer, as `BitmapData.draw()` into a readable bitmap uses, draws it from a
-decoded copy that is let go two seconds after it was last drawn. A method that
-reads or writes its pixels, such as `getPixel32` or `copyPixels`, decodes its
-image, which the bitmap then keeps as any other does. Until then its `image` is
-null: as the source of another bitmap's `copyPixels`, `copyChannel`, `merge`,
-`applyFilter` or `compare`, it has no pixels unless they were read before.
-
-This mode is opt-in because the other cached bitmaps, those the library cannot
-decode again (a symbol with a class of its own, an image that is not a PNG or
-JPEG file), become non-readable. Pixel read/write APIs and software-renderer
-fallback are not supported for those bitmaps, and their textures cannot be
-restored after a graphics context is lost.
+This mode is opt-in because cached bitmap assets used by direct `Bitmap`
+instances become non-readable. Pixel read/write APIs and software-renderer
+fallback are not supported for those bitmaps, and the textures of those decoded
+when their symbol was created cannot be restored after a graphics context is
+lost.
 
 Compact Animate timelines
 =========================
